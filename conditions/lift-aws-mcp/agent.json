@@ -1,0 +1,20 @@
+{
+  "name": "lift-aws-mcp",
+  "_lift": { "role": "treatment", "augmentation": "aws-mcp (managed)" },
+  "description": "Treatment: bare model + the managed AWS MCP Server (single hosted endpoint, aws___-prefixed tools) reached via mcp-proxy-for-aws (stdio->SigV4). One server provides docs + recommend + call_aws + skill discovery (retrieve_skill), so this single condition covers knowledge, API, and skills tasks. Connects to the us-east-1 endpoint but operates in us-west-2 via the AWS_REGION metadata. Requires working AWS credentials (default profile) since the server is SigV4-authed.",
+  "prompt": "You are a helpful AWS development assistant. Answer the user's AWS question or complete the task accurately and concisely. Prefer authoritative, current information, and use any tools you have available to verify facts and inspect AWS resources.",
+  "tools": ["read", "grep", "glob", "@aws-mcp"],
+  "allowedTools": ["read", "grep", "glob", "@aws-mcp"],
+  "mcpServers": {
+    "aws-mcp": {
+      "command": "uvx",
+      "transport": "stdio",
+      "timeout": 100000,
+      "args": [
+        "mcp-proxy-for-aws==1.6.2",
+        "https://aws-mcp.us-east-1.api.aws/mcp",
+        "--metadata", "AWS_REGION=us-west-2"
+      ]
+    }
+  }
+}

@@ -1,0 +1,37 @@
+id: iam-least-privilege-s3
+stratum: correctness
+expects_tool: documentation
+requires_account: false
+prompt: |
+  Write a least-privilege IAM policy (JSON) that grants read-only access to a
+  single S3 bucket named "my-app-logs" — specifically the ability to list the
+  bucket and get objects from it, and nothing else. Do not use wildcards on the
+  resource beyond what is necessary.
+answer_key: |
+  A correct least-privilege policy uses TWO statements with different resource
+  ARNs because s3:ListBucket acts on the bucket ARN while s3:GetObject acts on
+  object ARNs:
+
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": ["s3:ListBucket"],
+        "Resource": "arn:aws:s3:::my-app-logs"
+      },
+      {
+        "Effect": "Allow",
+        "Action": ["s3:GetObject"],
+        "Resource": "arn:aws:s3:::my-app-logs/*"
+      }
+    ]
+  }
+rubric: |
+  Full credit REQUIRES the correct ARN split: s3:ListBucket on
+  arn:aws:s3:::my-app-logs (bucket, no /*) and s3:GetObject on
+  arn:aws:s3:::my-app-logs/* (objects, with /*). A common model error is putting
+  both actions on one resource or using s3:* — deduct heavily and consider
+  marking hallucination if it claims an invalid structure works. No extra
+  actions (no put/delete) should be granted. Note: each statmen might include 
+  a Sid (Statement ID) with a descriptive name that does not impact the policy.  

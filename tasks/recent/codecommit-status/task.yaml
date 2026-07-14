@@ -1,0 +1,27 @@
+id: codecommit-status
+stratum: recent
+expects_tool: documentation
+requires_account: false
+prompt: |
+  What is the current availability status of AWS CodeCommit for new customers?
+  Can a brand-new AWS customer start using CodeCommit today?
+answer_key: |
+  Yes — a brand-new AWS customer CAN start using AWS CodeCommit today.
+  History/context: in July 2024 AWS announced it would de-emphasize CodeCommit
+  and stopped onboarding new customers (existing customers retained access).
+  Current ground truth: on November 24, 2025, AWS announced CodeCommit is
+  returning to full General Availability, effective immediately, and is OPEN TO
+  NEW CUSTOMERS AGAIN — new sign-ups can create repositories through the AWS
+  Console, CLI, or APIs. It is available in 29 regions; pricing is unchanged and
+  the 99.9% uptime SLA continues. (Roadmap items announced include Git LFS
+  support and additional regional expansions.)
+rubric: |
+  Full credit: correctly states that CodeCommit is available to new customers
+  today / a brand-new customer can create repositories (it returned to general
+  availability on November 24, 2025). Partial credit if it knows the July 2024
+  de-emphasis but is unaware of the reversal. The reversal is post-cutoff, so the
+  baseline will most likely say (incorrectly) that CodeCommit is closed to new
+  customers. Per the judge's hallucination rule: a stale "closed to new
+  customers" answer is INCORRECT but NOT a hallucination (it was true earlier);
+  mark hallucination=true only for fabricated specifics (e.g. invented dates,
+  invented "end-of-life" timelines stated as fact).

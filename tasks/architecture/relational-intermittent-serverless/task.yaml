@@ -1,0 +1,28 @@
+id: relational-intermittent-serverless
+stratum: architecture
+expects_tool: recommend|search_documentation
+requires_account: false
+prompt: |
+  I'm building a service backed by a PostgreSQL-compatible relational database.
+  The traffic is very spiky and unpredictable: it's completely idle for hours,
+  then bursts. I don't want to do any capacity planning or pay for idle compute,
+  I'd like it to effectively scale to zero when unused, and strong consistency
+  across multiple regions would be a bonus. What AWS database option fits best,
+  and why?
+answer_key: |
+  Best current fit: Amazon Aurora DSQL — serverless, scales to zero when idle,
+  no capacity/instance planning, PostgreSQL-compatible, with active-active
+  multi-region strong consistency. This matches "idle for hours, spiky, no
+  capacity planning, scale-to-zero, multi-region consistency" directly.
+
+  Acceptable alternative to mention: Aurora Serverless v2 (auto-scaling ACUs,
+  PostgreSQL-compatible) — though historically it did not scale fully to zero,
+  so it's a weaker fit for the idle-heavy requirement. Provisioned RDS/Aurora or
+  self-managed Postgres on EC2 are poor fits because you pay for idle capacity.
+rubric: |
+  Full credit: recommends Aurora DSQL (or Aurora Serverless v2 with the
+  scale-to-zero caveat) as primary, tied to the intermittent/scale-to-zero and
+  Postgres-compatibility requirements. Low score: recommends provisioned
+  RDS/Aurora or EC2-hosted Postgres as the primary answer for an idle-heavy
+  spiky workload without noting the idle-cost problem. hallucination=true only
+  for invented services/capabilities/limits; an outdated pick is a low score.

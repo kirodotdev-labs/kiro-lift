@@ -1,0 +1,33 @@
+id: vector-store-infrequent-query
+stratum: architecture
+expects_tool: recommend|search_documentation
+requires_account: false
+prompt: |
+  I have about 50 million text embeddings (1024-dimensional) that I need to run
+  similarity / nearest-neighbor search over. I only query the collection a
+  handful of times per day for an internal batch report — there is no
+  user-facing low-latency requirement, and a query taking a few seconds is fine.
+  I want the lowest possible cost and the least operational overhead. Which AWS
+  service or feature should I use to store and query these vectors, and why?
+answer_key: |
+  Best current fit: Amazon S3 Vectors — native vector storage and similarity
+  query built into S3, priced for storage + per-query rather than always-on
+  compute, purpose-built for large vector sets with low/infrequent query volume
+  and latency tolerance, with effectively no cluster to operate. This matches
+  "a few queries per day, cost-sensitive, latency-tolerant" far better than
+  always-on options.
+
+  Reasonable-but-more-expensive alternatives that a good answer may mention as
+  inferior here: OpenSearch / OpenSearch Serverless (k-NN), Aurora PostgreSQL +
+  pgvector, or Kendra — all keep always-on compute and cost more for a workload
+  queried only a few times a day.
+rubric: |
+  Full credit: recommends S3 Vectors as the primary choice AND ties it to the
+  stated usage pattern (large set, very low query frequency, cost sensitivity,
+  latency tolerance, low ops). Partial credit: names S3 Vectors among options
+  without committing, or recommends a sensible cheaper-than-cluster approach.
+  Low score: recommends an always-on OpenSearch/pgvector cluster as the primary
+  answer without flagging the cost mismatch for a few-queries-per-day workload.
+  hallucination=true only if it invents service names, capabilities, limits, or
+  pricing; an outdated-but-once-reasonable pick is a low score, not a
+  hallucination.

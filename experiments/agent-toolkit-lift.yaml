@@ -1,0 +1,41 @@
+name: agent-toolkit-lift
+# The worked example: how much lift does the Agent Toolkit for AWS (the managed
+# AWS MCP Server — docs + recommend + retrieve_skill) add over a bare model and
+# over a model with native tools (web + AWS CLI)?
+#
+# Model under test (the agent doing the tasks). Judges are separate (below) and
+# the model under test is automatically dropped from the judge panel. Override
+# this via `--model` to sweep several models against this same experiment.
+model: claude-sonnet-4.6
+
+# Three conditions. The first with role=baseline is the reference for
+# lift / McNemar in the report.
+#   lift-baseline         - bare model, no tools (reference)
+#   lift-baseline-native  - + native tools: web search/fetch + AWS CLI
+#   lift-aws-mcp          - + the Agent Toolkit for AWS (managed MCP: docs +
+#                           recommend + skills via retrieve_skill)
+conditions:
+  - lift-baseline
+  - lift-baseline-native
+  - lift-aws-mcp
+
+# Multiple judges; correctness scores are averaged. The model under test is
+# filtered out of this list at runtime to limit self-preference bias.
+judge_models:
+  - claude-opus-4.6
+  - claude-haiku-4.5
+  - glm-5
+
+reps: 5                 # repetitions per (task, condition); runs are stochastic
+pass_threshold: 6.0     # mean judge correctness (0-10) >= this counts as a pass
+timeout_s: 300
+
+# Account-free strata only. The report is sliced per stratum, so this one
+# experiment covers knowledge, architecture advice, and skills. The api stratum
+# (which needs AWS credentials + fixtures) is run separately via api-lift.yaml.
+task_filter:
+  - stable_public
+  - recent
+  - correctness
+  - architecture
+  - skills

@@ -1,0 +1,28 @@
+id: dynamodb-query-vs-scan
+stratum: correctness
+expects_tool: documentation
+requires_account: false
+prompt: |
+  In Amazon DynamoDB, when should I use a Query operation versus a Scan
+  operation, and what is the read-cost/performance implication of each? Be
+  precise about how each consumes read capacity.
+answer_key: |
+  - Query: retrieves items by partition key (and optional sort key condition).
+    It reads only the items that match the key condition, so it is efficient.
+    Query consumes read capacity based on the total size of items returned
+    (more precisely, the size of items read that match the key condition before
+    any FilterExpression is applied).
+  - Scan: reads EVERY item in the table (or index) and then optionally applies a
+    FilterExpression. It consumes read capacity for the entire amount of data
+    scanned, regardless of how many items the filter ultimately returns. This is
+    expensive and slow on large tables.
+  Guidance: use Query whenever you can target items by partition key; avoid Scan
+  for routine access patterns; if Scan is unavoidable, consider parallel scans
+  and remember filters do not reduce consumed capacity. A FilterExpression is
+  applied AFTER the read, so it does not save RCUs.
+rubric: |
+  Full credit: (a) Query targets by partition key and reads only matching items;
+  (b) Scan reads the whole table and consumes capacity for everything scanned;
+  (c) FilterExpression is applied after the read and does NOT reduce consumed
+  read capacity. The filter-does-not-save-cost point is the key correctness
+  discriminator. Mark hallucination if it claims filters reduce consumed RCUs.

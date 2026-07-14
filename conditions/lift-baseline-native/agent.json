@@ -1,0 +1,12 @@
+{
+  "name": "lift-baseline-native",
+  "_lift": { "role": "treatment", "augmentation": "native-tools (web + aws-cli)" },
+  "description": "Treatment: bare model + Kiro's built-in NATIVE tools — web search/fetch (web_search, web_fetch) AND the AWS CLI (use_aws + shell, read-only auto-allowed). Represents the realistic developer who already has web access and the CLI installed. Identical prompt/base tools to lift-baseline; the only difference is the native toolset. This is the comparison bar for the Agent Toolkit for AWS MCP: how far do you get with native tools alone, and what does the MCP add on top? Needs AWS credentials (default profile) to answer account-specific questions via the CLI.",
+  "prompt": "You are a helpful AWS development assistant. Answer the user's AWS question or complete the task accurately and concisely. Prefer authoritative, current information, and use any tools you have available to verify facts and inspect AWS resources.",
+  "tools": ["read", "grep", "glob", "web_search", "web_fetch", "shell", "use_aws"],
+  "allowedTools": ["read", "grep", "glob", "web_search", "web_fetch", "shell", "use_aws"],
+  "toolsSettings": {
+    "use_aws": { "autoAllowReadonly": true },
+    "shell": { "autoAllowReadonly": true }
+  }
+}

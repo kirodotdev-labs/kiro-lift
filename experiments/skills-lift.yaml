@@ -1,0 +1,29 @@
+name: skills-lift
+# Second worked example: testing an agent SKILL (not an MCP). Demonstrates the
+# typical "I wrote a skill — does it help?" workflow, where the skill is shipped
+# as part of the condition (copied into the run workspace at .kiro/skills/),
+# versus discovered at runtime.
+#
+#   lift-baseline  - bare model, no skill (reference)
+#   lift-skill     - + the aws-sdk-python-usage skill provided locally in the
+#                    workspace (the typical "bring your own skill" case)
+#   lift-aws-mcp   - + the Agent Toolkit for AWS, which can DISCOVER the same
+#                    skill at runtime via retrieve_skill (provided vs discovered)
+model: claude-sonnet-4.6
+
+conditions:
+  - lift-baseline
+  - lift-skill
+  - lift-aws-mcp
+
+judge_models:
+  - claude-opus-4.6
+  - claude-haiku-4.5
+  - glm-5
+
+reps: 5
+pass_threshold: 6.0
+timeout_s: 300
+
+task_filter:
+  - skills

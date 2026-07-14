@@ -1,0 +1,107 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  kiro-lift API-stratum test fixtures. Provisions deterministic IAM and
+  security-group resources that serve as hard-coded ground truth for the
+  read-only API-tool tasks under tasks/api/. The harness never mutates these
+  resources; create/delete is performed only by the stratum setup/teardown
+  scripts. Designed to deploy and delete cleanly with no instances or objects.
+
+Resources:
+  # ---- S3 + IAM (drives the iam-can-read / iam-cannot-write tasks) ----------
+  DataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      # S3 bucket names are globally unique; suffix with the account id so the
+      # stack is deployable in any test account. Surfaced as a stack Output.
+      BucketName: !Sub kiro-lift-data-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  ReaderRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: kiro-lift-reader
+      Description: Read-only access to the kiro-lift data bucket (no write).
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: kiro-lift-reader-s3-readonly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ListBucket
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !Sub arn:aws:s3:::kiro-lift-data-${AWS::AccountId}
+              - Sid: GetObjects
+                Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub arn:aws:s3:::kiro-lift-data-${AWS::AccountId}/*
+              # Note: intentionally NO s3:PutObject -> "cannot write" is true.
+
+  # ---- VPC + security groups (drives the sg-can-reach / sg-cannot tasks) -----
+  FixtureVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.42.0.0/16
+      Tags:
+        - Key: Name
+          Value: kiro-lift-fixtures
+
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: kiro-lift application tier (traffic source)
+      VpcId: !Ref FixtureVpc
+      Tags:
+        - Key: Name
+          Value: kiro-lift-app-sg
+
+  DbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: kiro-lift database tier (allows 8080 from app sg only)
+      VpcId: !Ref FixtureVpc
+      Tags:
+        - Key: Name
+          Value: kiro-lift-db-sg
+
+  # Separate ingress resource avoids a circular dependency between the two SGs.
+  # Allows TCP 8080 from the app SG; there is deliberately NO port-22 rule.
+  DbIngress8080FromApp:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref DbSecurityGroup
+      IpProtocol: tcp
+      FromPort: 8080
+      ToPort: 8080
+      SourceSecurityGroupId: !Ref AppSecurityGroup
+      Description: Allow the app tier to reach the db tier on 8080
+
+Outputs:
+  DataBucket:
+    Description: Name of the test data bucket.
+    Value: !Ref DataBucket
+  ReaderRoleName:
+    Description: Name of the read-only IAM role.
+    Value: !Ref ReaderRole
+  ReaderRoleArn:
+    Description: ARN of the read-only IAM role.
+    Value: !GetAtt ReaderRole.Arn
+  AppSg:
+    Description: Application-tier security group id.
+    Value: !Ref AppSecurityGroup
+  DbSg:
+    Description: Database-tier security group id.
+    Value: !Ref DbSecurityGroup
+  VpcId:
+    Description: Fixture VPC id.
+    Value: !Ref FixtureVpc

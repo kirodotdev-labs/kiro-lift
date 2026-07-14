@@ -1,0 +1,51 @@
+id: dynamodb-marshalling-python
+stratum: skills
+expects_tool: retrieve_skill|search_documentation
+requires_account: false
+prompt: |
+  Write a Python function using boto3 that stores a user record in a DynamoDB
+  table and reads it back, returning the item as an ordinary Python dict (normal
+  Python types — not DynamoDB's typed wire format). The record has: a string id
+  (the partition key "pk"), a string name, an integer age, and a monetary
+  account balance. Show the complete code and briefly explain how you avoid
+  DynamoDB's AttributeValue format and how you represent the balance.
+answer_key: |
+  A correct implementation uses the boto3 RESOURCE interface (or the resource's
+  underlying `.meta.client`), which auto-marshals between native Python types and
+  DynamoDB's AttributeValue format, and uses `decimal.Decimal` for the monetary
+  balance (DynamoDB stores numbers as Decimal; passing a float raises an error /
+  introduces precision artifacts).
+
+  ```python
+  import boto3
+  from decimal import Decimal
+
+  def save_and_load_user(table_name: str, pk: str, name: str,
+                         age: int, balance: Decimal) -> dict:
+      table = boto3.resource("dynamodb").Table(table_name)
+      table.put_item(Item={"pk": pk, "name": name, "age": age, "balance": balance})
+      return table.get_item(Key={"pk": pk}).get("Item")
+
+  # e.g. save_and_load_user("users", "user#1", "Alice", 30, Decimal("19.99"))
+  ```
+
+  get_item returns a plain dict like {"pk": "user#1", "name": "Alice",
+  "age": Decimal("30"), "balance": Decimal("19.99")} — native types, no
+  {"S": ...}/{"N": ...} wrappers.
+
+  COMMON MODEL MISTAKES the skill corrects:
+  1. Using `boto3.client("dynamodb")` and then hand-building / parsing
+     AttributeValue dicts ({"S": "Alice"}, {"N": "30"}) — verbose and error-prone.
+     The resource interface (or `boto3.resource("dynamodb").meta.client`) marshals
+     automatically.
+  2. Using a `float` for the balance instead of `Decimal` — boto3 rejects float
+     for DynamoDB numbers (raises) and float introduces precision artifacts.
+rubric: |
+  Full credit: uses the resource interface (boto3.resource("dynamodb").Table) —
+  or the resource's `.meta.client` — so put/get use native Python types with no
+  manual AttributeValue ({"S"/"N": ...}) construction, AND uses Decimal for the
+  balance (or explicitly notes floats are invalid for DynamoDB numbers). Partial:
+  resource interface but stores the balance as a float without noting the issue.
+  Low score: uses boto3.client("dynamodb") with hand-built/parsed AttributeValue
+  dicts, or claims floats work fine. hallucination=true only for invented boto3
+  APIs or parameters.

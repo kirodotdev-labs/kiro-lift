@@ -1,0 +1,22 @@
+id: sg-app-to-db-open-ports
+stratum: api
+expects_tool: call_aws|use_aws
+requires_account: true
+prompt: |
+  In AWS region us-west-2 there are two security groups: ${AppSg} (application
+  tier) and ${DbSg} (database tier). Based on the security group rules, list
+  EXACTLY which TCP/UDP ports (and protocols) an instance in ${AppSg} is allowed
+  to reach on an instance in ${DbSg}. Be specific, and state whether only a
+  single port is open.
+answer_key: |
+  Exactly one port is reachable: TCP 8080. ${DbSg} has a single inbound rule
+  allowing TCP port 8080 from source security group ${AppSg}, and no other
+  inbound rules — so from ${AppSg} only TCP 8080 on ${DbSg} is open. No other
+  ports (e.g. 22, 443, 3306) are reachable.
+rubric: |
+  Grade the CONTENT of the ports listed, not whether the raw query is shown —
+  the harness tracks tool use separately. Full credit: identifies TCP 8080 as
+  the ONLY reachable port from ${AppSg} to ${DbSg} and indicates nothing else is
+  open. Low score: lists extra open ports (e.g. 22, or "all traffic"), the wrong
+  protocol, the wrong port, or misses 8080. hallucination=true only if it
+  invents rules/ports that are not present.

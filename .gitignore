@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# OS / editor
+.DS_Store
+*.swp
+
+# Run outputs are local artifacts (stochastic, model-dependent) — not committed.
+# The directories are kept via .gitkeep so the harness has somewhere to write.
+results/*
+report/*
+!results/.gitkeep
+!report/.gitkeep
+
+# Local fixture-output scratch
+*.fixtures.json

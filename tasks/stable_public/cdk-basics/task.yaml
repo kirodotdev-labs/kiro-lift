@@ -1,0 +1,22 @@
+id: cdk-basics
+stratum: stable_public
+expects_tool: documentation
+requires_account: false
+prompt: |
+  What is the AWS CDK? Which programming languages does it support, what is its
+  core building-block abstraction, and what does `cdk synth` produce?
+answer_key: |
+  The AWS Cloud Development Kit (CDK) is an open-source framework for defining
+  cloud infrastructure as code using general-purpose programming languages and
+  provisioning it through AWS CloudFormation.
+  - Languages: TypeScript/JavaScript, Python, Java, C#/.NET, and Go.
+  - Core abstraction: Constructs — reusable cloud components, composed into
+    Stacks, which live in an App. (Construct levels: L1/Cfn resources, L2
+    curated resources, L3 patterns.)
+  - `cdk synth` synthesizes the app into an AWS CloudFormation template (and
+    cloud assembly); `cdk deploy` then deploys that template.
+rubric: |
+  Full credit: infrastructure-as-code in general-purpose languages compiling to
+  CloudFormation; lists several supported languages; Constructs as the core
+  abstraction; `cdk synth` produces a CloudFormation template. Stable, pre-cutoff
+  knowledge — expect ~0 lift. Mark hallucination only for invented facts.

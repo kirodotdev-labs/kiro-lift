@@ -1,0 +1,26 @@
+id: iam-s3-allowed-actions
+stratum: api
+expects_tool: call_aws|use_aws
+requires_account: true
+prompt: |
+  In AWS region us-west-2, inspect the permissions of the IAM role named
+  ${ReaderRoleName} (ARN ${ReaderRoleArn}) and list EXACTLY which Amazon S3
+  actions it is permitted to perform on the bucket ${DataBucket} and the objects
+  in it. Be specific about the action names, and state clearly which common S3
+  actions it is NOT permitted to perform (e.g. writing or deleting).
+answer_key: |
+  The role ${ReaderRoleName} is permitted exactly two S3 actions:
+    - s3:ListBucket  (on the bucket arn:aws:s3:::${DataBucket})
+    - s3:GetObject   (on objects arn:aws:s3:::${DataBucket}/*)
+  It has NO other S3 permissions — in particular it cannot write or delete:
+  no s3:PutObject, no s3:DeleteObject, no s3:DeleteBucket, no s3:*. The complete
+  allowed set is exactly {s3:ListBucket, s3:GetObject}.
+rubric: |
+  Grade the CONTENT of the listed permissions, not whether the answer prints the
+  raw API call — the harness tracks tool use separately. Full credit: names
+  exactly s3:ListBucket and s3:GetObject as the allowed actions AND states that
+  write/delete (e.g. s3:PutObject / s3:DeleteObject) are not allowed. Partial
+  credit: describes it as "read-only / can list and read objects" without the
+  exact action names. Low score: claims it can write or delete, omits one of the
+  two allowed actions, or lists actions it does not have. hallucination=true only
+  if it invents specific actions/permissions that are not present.

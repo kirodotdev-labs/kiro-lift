@@ -1,0 +1,8 @@
+{
+  "name": "lift-skill",
+  "_lift": { "role": "treatment", "augmentation": "local-skill (aws-sdk-python-usage)" },
+  "description": "Treatment: bare model + a locally-provided agent skill, copied into the run workspace at .kiro/skills/ (no MCP, no web). This is the typical 'I wrote a skill — does it help?' workflow: the skill is part of the condition, not discovered at runtime. It ships the Agent Toolkit for AWS 'aws-sdk-python-usage' skill (boto3 patterns incl. pagination, the DynamoDB resource interface, error handling). Identical prompt/base tools to lift-baseline; the only difference is the skill files present in the workspace. Contrast with lift-aws-mcp, which can DISCOVER the same skill at runtime via retrieve_skill.",
+  "prompt": "You are a helpful AWS development assistant. Answer the user's AWS question or complete the task accurately and concisely. Prefer authoritative, current information, and use any tools you have available to verify facts and inspect AWS resources.",
+  "tools": ["read", "grep", "glob"],
+  "allowedTools": ["read", "grep", "glob"]
+}

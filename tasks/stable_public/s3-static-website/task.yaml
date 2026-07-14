@@ -1,0 +1,24 @@
+id: s3-static-website
+stratum: stable_public
+expects_tool: documentation
+requires_account: false
+prompt: |
+  I want to host a static website (HTML/CSS/JS) directly from an Amazon S3
+  bucket (no CloudFront). What are the required steps and bucket settings to
+  make the site publicly accessible? Be specific and concise.
+answer_key: |
+  Required steps to host a static website directly from S3:
+  1. Enable "Static website hosting" on the bucket and set the index document
+     (e.g. index.html) and optionally an error document (e.g. error.html).
+  2. Disable "Block Public Access" settings on the bucket (turn off block public
+     access) so a public bucket policy can take effect.
+  3. Add a bucket policy granting s3:GetObject to everyone (Principal "*") on
+     arn:aws:s3:::<bucket>/* .
+  4. Access the site at the S3 website endpoint
+     (http://<bucket>.s3-website-<region>.amazonaws.com). The website endpoint
+     serves over HTTP only (HTTPS needs CloudFront).
+rubric: |
+  Full credit requires: (a) enabling static website hosting + index document,
+  (b) disabling block public access, (c) a bucket policy allowing public
+  s3:GetObject. Mentioning the website endpoint / HTTP-only is a bonus.
+  Deduct for inventing settings that do not exist.

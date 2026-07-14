@@ -1,0 +1,13 @@
+name: smoke
+# Tiny, cheap pipeline check: baseline condition only (no MCP, no AWS cost),
+# one rep, one judge, a single stratum.
+model: claude-haiku-4.5
+conditions:
+  - lift-baseline
+judge_models:
+  - claude-haiku-4.5
+reps: 1
+pass_threshold: 6.0
+timeout_s: 180
+task_filter:
+  - stable_public

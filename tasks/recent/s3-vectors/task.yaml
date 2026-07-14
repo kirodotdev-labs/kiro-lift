@@ -1,0 +1,28 @@
+id: s3-vectors
+stratum: recent
+expects_tool: documentation
+requires_account: false
+prompt: |
+  What is Amazon S3 Vectors? Specifically: what new type of S3 bucket does it
+  introduce, and what are its current scale limits (maximum vectors per index
+  and maximum vector indexes per bucket)?
+answer_key: |
+  Amazon S3 Vectors is the first cloud object storage with native support to
+  store and query vector data (embeddings). It became generally available in
+  December 2025 (after a July 2025 preview).
+  - New bucket type: it introduces "vector buckets", which contain "vector
+    indexes". (This is distinct from general purpose buckets and directory
+    buckets.)
+  - Scale limits (GA): up to 2 billion vectors per index, and up to 10,000
+    vector indexes per vector bucket.
+  - It provides dedicated APIs to store/query vectors with subsecond query
+    latency, the same durability/availability as S3, and reduces the cost of
+    storing and querying vectors by up to ~90% versus dedicated vector
+    databases. Use cases: RAG, semantic search, AI agents/inference.
+rubric: |
+  Full credit REQUIRES: (a) the "vector buckets" + "vector indexes" terminology,
+  and (b) the GA scale numbers — 2 billion vectors per index AND 10,000 indexes
+  per bucket. Partial credit for the concept without the GA-specific numbers.
+  Mark hallucination=true if it invents different limits or a different bucket
+  name as fact, or claims the service does not exist. This is a post-Aug-2025
+  GA; the expected baseline failure is stale (preview-era) or omitted detail.

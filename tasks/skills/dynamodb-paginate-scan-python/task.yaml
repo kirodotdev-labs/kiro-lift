@@ -1,0 +1,41 @@
+id: dynamodb-paginate-scan-python
+stratum: skills
+expects_tool: retrieve_skill|search_documentation
+requires_account: false
+prompt: |
+  Write a Python function using boto3 that scans an entire DynamoDB table
+  (table name passed as a parameter) and returns ALL items, correctly handling
+  pagination so that no items are lost regardless of table size. Use the
+  low-level client (not the Table resource). Show the complete function.
+answer_key: |
+  A correct implementation MUST loop on LastEvaluatedKey to paginate:
+
+  ```python
+  import boto3
+
+  def scan_all_items(table_name: str) -> list[dict]:
+      client = boto3.client('dynamodb')
+      items = []
+      kwargs = {'TableName': table_name}
+      while True:
+          response = client.scan(**kwargs)
+          items.extend(response.get('Items', []))
+          last_key = response.get('LastEvaluatedKey')
+          if not last_key:
+              break
+          kwargs['ExclusiveStartKey'] = last_key
+      return items
+  ```
+
+  The COMMON MODEL MISTAKE the skill corrects: calling `client.scan()` once
+  without checking/looping on `LastEvaluatedKey`. DynamoDB scan returns at most
+  1 MB per call; without pagination the function silently drops all items beyond
+  the first page. A correct answer must loop until LastEvaluatedKey is absent.
+rubric: |
+  Full credit: the function loops on LastEvaluatedKey (or equivalent paginator
+  pattern) and accumulates all items across pages. The key correctness criterion
+  is the pagination loop — the exact variable names or whether they use a
+  paginator vs manual loop doesn't matter. Low score: calls scan() once without
+  pagination (the common mistake). Partial: mentions pagination but implements
+  it incorrectly (e.g. wrong key name, off-by-one). hallucination=true only for
+  invented boto3 API parameters.
