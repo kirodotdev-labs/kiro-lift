@@ -16,6 +16,13 @@ from statistics import mean
 from typing import Any, Iterable
 
 
+# The base toolset every condition shares (workspace inspection). Tool-use is
+# measured as calls BEYOND these, so a bare baseline that only peeks at the
+# (empty) workspace with read/glob reads 0% and the metric reflects "reached for
+# an augmentation/knowledge tool" (web_search, web_fetch, an MCP tool, ...).
+BASE_TOOLS = {"read", "grep", "glob"}
+
+
 def load_jsonl(path: str | Path) -> list[dict[str, Any]]:
     rows = []
     for line in Path(path).read_text().splitlines():
@@ -57,7 +64,8 @@ class TaskOutcome:
     mean_credits: float | None
     mean_time: float | None
     hallucination_rate: float | None
-    used_tool_frac: float | None
+    tool_use_frac: float | None     # fraction of reps that used a NON-BASE tool
+                                    # (any tool beyond the shared read/grep/glob)
 
 
 def _reduce_task(rows: list[dict[str, Any]]) -> TaskOutcome:
@@ -67,7 +75,14 @@ def _reduce_task(rows: list[dict[str, Any]]) -> TaskOutcome:
     creds = [r["credits"] for r in rows if r.get("credits") is not None]
     times = [r["cli_time_s"] for r in rows if r.get("cli_time_s") is not None]
     halls = [r["hallucination_rate"] for r in rows if r.get("hallucination_rate") is not None]
-    used = [r["used_expected_tool"] for r in rows if r.get("used_expected_tool") is not None]
+    # Tool-use = the run reached for a tool BEYOND the shared base toolset
+    # (read/grep/glob) — an actual augmentation/knowledge tool such as
+    # web_search, web_fetch, or an MCP tool. Base filesystem calls are excluded
+    # so a bare baseline that only peeks at the empty workspace reads 0%.
+    tu = [
+        any(tc not in BASE_TOOLS for tc in (r.get("tool_calls") or []))
+        for r in rows if r.get("tool_calls") is not None
+    ]
     return TaskOutcome(
         task_id=rows[0]["task_id"],
         stratum=rows[0]["stratum"],
@@ -76,7 +91,7 @@ def _reduce_task(rows: list[dict[str, Any]]) -> TaskOutcome:
         mean_credits=round(mean(creds), 3) if creds else None,
         mean_time=round(mean(times), 2) if times else None,
         hallucination_rate=round(mean(halls), 3) if halls else None,
-        used_tool_frac=round(sum(1 for u in used if u) / len(used), 3) if used else None,
+        tool_use_frac=round(sum(1 for t in tu if t) / len(tu), 3) if tu else None,
     )
 
 
@@ -165,7 +180,7 @@ def analyze(rows: list[dict[str, Any]], baseline: str) -> dict[str, Any]:
             creds = [t.mean_credits for t in ct if t.mean_credits is not None]
             times = [t.mean_time for t in ct if t.mean_time is not None]
             halls = [t.hallucination_rate for t in ct if t.hallucination_rate is not None]
-            used = [t.used_tool_frac for t in ct if t.used_tool_frac is not None]
+            tus = [t.tool_use_frac for t in ct if t.tool_use_frac is not None]
 
             base_succ = (sum(1 for t in bt.values() if t.passed) / len(bt)) if bt else None
             succ = n_pass / n if n else 0.0
@@ -180,7 +195,7 @@ def analyze(rows: list[dict[str, Any]], baseline: str) -> dict[str, Any]:
                 "mean_credits": round(mean(creds), 3) if creds else None,
                 "mean_time_s": round(mean(times), 2) if times else None,
                 "hallucination_rate": round(mean(halls), 3) if halls else None,
-                "expected_tool_use_frac": round(mean(used), 3) if used else None,
+                "tool_use_frac": round(mean(tus), 3) if tus else None,
             }
 
         all_creds = [t.mean_credits for t in cond_tasks.values() if t.mean_credits is not None]
@@ -300,7 +315,7 @@ def render_markdown(summary: dict[str, Any]) -> str:
 
             out.append(
                 f"| {name} | {succ} | {lift} | {unlock} | {hall_s} | "
-                f"{_pct(ps.get('expected_tool_use_frac'))} | {cost} | {mcnemar} |"
+                f"{_pct(ps.get('tool_use_frac'))} | {cost} | {mcnemar} |"
             )
         out.append("")
 
@@ -325,6 +340,9 @@ def render_markdown(summary: dict[str, Any]) -> str:
     out.append("_Lift = success − baseline success on the same tasks. "
                "Unlock = baseline-fail → treatment-pass rate. "
                "Halluc (Δ) = hallucination rate (Δ vs baseline). "
+               "Tool-use = fraction of runs that used a tool BEYOND the shared "
+               "read/grep/glob base (an augmentation/knowledge tool such as "
+               "web_search, web_fetch, or an MCP tool); a bare baseline reads 0%. "
                "Cost = mean credits/run (and ×baseline). "
                "McNemar p = two-sided exact paired test with b→c discordant counts; "
                "small n (shown) is underpowered, so read p alongside lift._")
