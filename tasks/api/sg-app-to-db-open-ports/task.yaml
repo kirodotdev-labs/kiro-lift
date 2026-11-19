@@ -1,6 +1,6 @@
 id: sg-app-to-db-open-ports
 stratum: api
-expects_tool: call_aws|use_aws
+expects_tool: run_script|execute_bash
 requires_account: true
 prompt: |
   In AWS region us-west-2 there are two security groups: ${AppSg} (application

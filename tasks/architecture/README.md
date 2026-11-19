@@ -8,11 +8,11 @@ asks "what should I use?" — it must never name or hint the target service.
   when they fit) instead of older/heavier defaults.
 - **Expected baseline failure mode:** recommends habitual or pre-cutoff services;
   misses newer best-fit options.
-- **Expected lift from augmentation:** comes from `recommend` /
-  `search_documentation` surfacing current options.
+- **Expected lift from augmentation:** comes from `search_documentation` (or
+  web search) surfacing current options.
 - **Guardrail:** at least one task (`static-site-not-overbuilt`) rewards the
   *simple* answer, so a condition can't win just by always upselling the newest
   service.
 
 Authoring rule: keep prompts neutral and pattern-shaped; never mention a
-candidate service or the recommend tool. No fixtures; no account required.
+candidate service or a specific tool. No fixtures; no account required.

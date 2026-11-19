@@ -1,7 +1,7 @@
 """Multi-model LLM judge.
 
 Each run's candidate answer is scored by several judge models (via kiro-cli
-headless with a no-tools agent). Scores are averaged; per-judge detail is kept.
+headless, v3 engine, with a no-tools agent). Scores are averaged; per-judge detail is kept.
 Using multiple judges -- and judges different from the model under test --
 reduces single-model bias and self-preference.
 """
@@ -20,7 +20,6 @@ from typing import Any
 
 from .config import Task
 
-KIRO_BIN = os.environ.get("KIRO_LIFT_BIN", "kiro-cli")
 
 _JUDGE_AGENT = {
     "name": "lift-judge",
@@ -30,7 +29,6 @@ _JUDGE_AGENT = {
         "AWS-related task. You do not use tools. You output only a single JSON object."
     ),
     "tools": [],
-    "allowedTools": [],
 }
 
 _JUDGE_TEMPLATE = """\
@@ -113,17 +111,17 @@ def _extract_json(cleaned: str) -> dict[str, Any] | None:
 
 
 def _run_judge(prompt: str, judge_model: str, timeout_s: int) -> str:
-    from .parse import strip_ansi
+    """Run the grader headlessly (v3 engine, stream-json) and return its answer text."""
+    from .parse import parse_run
+    from .runner import base_cmd, write_run_settings
 
     workspace = Path(tempfile.mkdtemp(prefix=f"kirolift_judge_{judge_model}_"))
     try:
         agents_dir = workspace / ".kiro" / "agents"
         agents_dir.mkdir(parents=True, exist_ok=True)
         (agents_dir / "lift-judge.json").write_text(json.dumps(_JUDGE_AGENT, indent=2))
-        cmd = [
-            KIRO_BIN, "chat", "--no-interactive",
-            "--agent", "lift-judge",
-            "--model", judge_model,
+        write_run_settings(workspace)
+        cmd = base_cmd("lift-judge", judge_model) + [
             "--trust-tools=",  # trust no tools
             prompt,
         ]
@@ -132,9 +130,13 @@ def _run_judge(prompt: str, judge_model: str, timeout_s: int) -> str:
                 cmd, cwd=str(workspace), capture_output=True, text=True,
                 timeout=timeout_s, env=os.environ.copy(),
             )
-            return strip_ansi((proc.stdout or "") + (proc.stderr or ""))
         except subprocess.TimeoutExpired:
             return "[KIRO-LIFT] JUDGE TIMEOUT"
+        parsed = parse_run(proc.stdout or "", proc.stderr or "")
+        if parsed.answer:
+            return parsed.answer
+        # No parsable answer: surface stderr so parse failures are diagnosable.
+        return (proc.stderr or "")[-1000:]
     finally:
         shutil.rmtree(workspace, ignore_errors=True)
 

@@ -1,7 +1,7 @@
 name: api-lift
 # API-tool tasks: deterministic questions about resources provisioned by the api
 # stratum's CloudFormation fixtures (IAM permissions, security-group reachability).
-# Tests whether the Agent Toolkit for AWS (managed MCP `call_aws`) can inspect
+# Tests whether the Agent Toolkit for AWS (managed MCP `run_script`) can inspect
 # real account state, versus native tools (the AWS CLI) and a bare model.
 #
 # REQUIRES: run with `--allow-account-tasks` and valid default-profile AWS
@@ -11,7 +11,7 @@ name: api-lift
 # fixed resource names, do not run two copies of this experiment concurrently.
 model: claude-sonnet-4.6
 
-# lift-baseline-native is the realistic competitor (AWS CLI access via use_aws).
+# lift-baseline-native is the realistic competitor (AWS CLI via execute_bash).
 # lift-baseline (no tools) shows capability-unlock signal (it cannot inspect the
 # account at all). lift-aws-mcp is the Agent Toolkit treatment.
 conditions:

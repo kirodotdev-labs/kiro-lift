@@ -1,6 +1,6 @@
 id: vector-store-infrequent-query
 stratum: architecture
-expects_tool: recommend|search_documentation
+expects_tool: search_documentation
 requires_account: false
 prompt: |
   I have about 50 million text embeddings (1024-dimensional) that I need to run

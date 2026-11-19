@@ -1,6 +1,6 @@
 id: iam-s3-allowed-actions
 stratum: api
-expects_tool: call_aws|use_aws
+expects_tool: run_script|execute_bash
 requires_account: true
 prompt: |
   In AWS region us-west-2, inspect the permissions of the IAM role named

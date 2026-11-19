@@ -33,8 +33,10 @@ augmentation](#test-your-own-augmentation).
    one `baseline` and one or more `treatment`s that differ *only* by the
    augmentation, so any delta is attributable to it.
 2. For each `task × condition × rep`, the runner writes the agent config into an
-   isolated workspace and invokes `kiro-cli chat --no-interactive`.
-3. Output is parsed for the answer, tool/MCP usage, credits, and latency.
+   isolated workspace and invokes `kiro-cli chat --no-interactive` (v3 engine,
+   `--output-format stream-json`).
+3. The event stream and the run's session log are parsed for the answer,
+   tool/MCP usage, credits, and latency.
 4. Several **judge models** (the model under test is dropped automatically) score
    each answer against the task's answer key + rubric.
 5. Results aggregate per **stratum** into a recommendation-shaped report:
@@ -87,11 +89,13 @@ capability — so any delta is attributable to the augmentation:
 - `lift-baseline` — bare model, no tools (**baseline / reference**). Any
   account-specific or post-cutoff answer it gets right comes from training alone.
 - `lift-baseline-native` — + Kiro's built-in **native tools**: web search/fetch
-  **and** the AWS CLI (`use_aws`, read-only). The realistic developer who already
-  has web access and the CLI. This is the comparison bar for the MCP.
+  (`web`) **and** a shell (`shell`) with the AWS CLI installed. The realistic
+  developer who already has web access and the CLI. This is the comparison bar
+  for the MCP.
 - `lift-aws-mcp` — + the **Agent Toolkit for AWS** (including the AWS MCP Server)
-  via `mcp-proxy-for-aws`: `documentation`, `recommend`, and `call_aws`. Connects 
-  to the `us-east-1` endpoint. SigV4-authed, so it needs AWS credentials.
+  via `mcp-proxy-for-aws`: `search_documentation`/`read_documentation`,
+  `run_script` (AWS API access), and `retrieve_skill`. Connects to the
+  `us-east-1` endpoint. SigV4-authed, so it needs AWS credentials.
 
 ### `skills-lift` — bringing your own skill
 
@@ -126,11 +130,17 @@ conditions/<name>/
 1. Add `conditions/<your-treatment>/agent.json` and keep `lift-baseline` as the
    reference. Encode the augmentation in the agent config:
    - **MCP server** → `mcpServers` block
-   - **extra tools** (web, CLI, etc.) → `tools` / `allowedTools`
+   - **extra tools** (web, shell, etc.) → `tools` (v3 selectors such as
+     `read`, `shell`, `web`, `@<mcp-server>`), plus `permissions` if you need
+     to restrict what they may do
    - **persona / custom agent** → `prompt` and tool policy
    - **steering files / skills** → drop the files under
      `conditions/<name>/workspace/.kiro/` (they're copied into the run workspace
-     before each run). The augmentation belongs to the condition, not a stratum.
+     before each run) and declare them in the agent's `resources` (e.g.
+     `skill://.kiro/skills/**/SKILL.md`; a `SKILL.md` needs `name`/`description`
+     frontmatter). The harness disables inheritance of default resources in run
+     workspaces, so nothing from your own `~/.kiro` leaks into a condition. The
+     augmentation belongs to the condition, not a stratum.
    Keep prompt and base tools identical to the baseline so the only variable is
    the augmentation.
 2. (Optional) Add tasks under `tasks/<stratum>/<id>/task.yaml`. If a stratum
@@ -195,9 +205,9 @@ needs no fixture.
 
 **Prerequisites**
 - Python 3.10+.
-- [`kiro-cli`](https://kiro.dev/cli/) on your `PATH`, authenticated for headless
-  use via a `KIRO_API_KEY` (Kiro Pro+). Every run shells out to
-  `kiro-cli chat --no-interactive`.
+- [`kiro-cli`](https://kiro.dev/cli/) **3.x** on your `PATH`, authenticated for
+  headless use via a `KIRO_API_KEY` (Kiro Pro+). Every run shells out to
+  `kiro-cli chat --no-interactive --agent-engine v3 --output-format stream-json`.
 - For the `api` stratum only: AWS credentials that can create/delete the fixture
   stack (see [Fixtures](#fixtures)). All other strata run offline.
 
@@ -298,10 +308,16 @@ cost relative to baseline) plus a computed best-per-stratum recommendation. Use
 
 ## Telemetry source
 
-Headless `kiro-cli chat --no-interactive` stdout provides, per run: the answer,
-a `Credits: <n> • Time: <n>s` footer (cost + latency), and visible tool-use
-lines (utilization). No raw token counts are emitted; credits is the more
-decision-relevant cost metric anyway.
+Headless `kiro-cli chat --output-format stream-json` emits one ACP event per
+line. Per run the harness takes: the answer (`runFinished.finalText`), credits
+and elapsed time (the `turn_completion` session update), run status, and the
+session id. Exact tool names and an ordered transcript come from the run's
+session log (`~/.kiro/sessions/<cwd-hash>/<sessionId>/messages.jsonl`, override
+the root with `KIRO_LIFT_SESSIONS_DIR`); MCP tools are recorded by their bare
+name (e.g. `aws___search_documentation`) and skill loads as
+`load_resource(skill::<name>)`. Each run's session stays on disk, so the full
+chat/tool log is available for manual review. No raw token counts are emitted;
+credits is the more decision-relevant cost metric anyway.
 
 ## Method notes
 

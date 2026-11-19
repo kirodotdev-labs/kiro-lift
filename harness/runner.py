@@ -1,7 +1,9 @@
-"""Headless runner: invoke kiro-cli for one (task, condition, rep) in isolation."""
-
+"""Headless runner: invoke kiro-cli (v3 engine) for one (task, condition, rep) in isolation."""
 from __future__ import annotations
 
+import functools
+import glob
+import json
 import os
 import shutil
 import subprocess
@@ -15,6 +17,14 @@ from .config import Condition, Task
 from .parse import parse_run
 
 KIRO_BIN = os.environ.get("KIRO_LIFT_BIN", "kiro-cli")
+# Where kiro-cli v3 keeps per-session logs (<root>/<cwd-hash>/<sessionId>/messages.jsonl).
+SESSIONS_DIR = Path(os.environ.get("KIRO_LIFT_SESSIONS_DIR", Path.home() / ".kiro" / "sessions"))
+
+# Workspace-scoped CLI settings written into every run workspace. Custom agents
+# inherit the user's global steering/skills/AGENTS.md by default; that would leak
+# the operator's own context into every condition, so turn it off. Conditions
+# declare what they ship explicitly (e.g. lift-skill's skill:// resource).
+_RUN_SETTINGS = {"chat.disableInheritingDefaultResources": True}
 
 # Signatures of transient backend/infra failures (not task failures). These are
 # CLI-level error banners that do not appear in normal answer text, so matching
@@ -30,8 +40,70 @@ _TRANSIENT_SIGNATURES = (
 )
 
 
-def _is_transient(raw: str) -> bool:
-    return any(sig in raw for sig in _TRANSIENT_SIGNATURES)
+def _is_transient(raw: str, status: str | None, answer: str) -> bool:
+    if any(sig in raw for sig in _TRANSIENT_SIGNATURES):
+        return True
+    # v3 reports a non-success run status; with no answer at all that is an
+    # infrastructure failure, not a model failure.
+    return status is not None and status != "success" and not answer
+
+
+@functools.lru_cache(maxsize=1)
+def kiro_version() -> str:
+    try:
+        out = subprocess.run([KIRO_BIN, "--version"], capture_output=True, text=True, timeout=20)
+        return (out.stdout or out.stderr).strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return "unknown"
+
+
+def _clean_env() -> dict[str, str]:
+    env = os.environ.copy()
+    # Empty pager vars (as set by some IDE shells) crash `aws <svc> help`.
+    for k in ("PAGER", "AWS_PAGER", "MANPAGER"):
+        if k in env and env[k] == "":
+            del env[k]
+    return env
+
+
+def write_run_settings(workspace: Path) -> None:
+    """Merge the harness's workspace CLI settings into <workspace>/.kiro/settings/cli.json."""
+    settings_path = workspace / ".kiro" / "settings" / "cli.json"
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    current: dict[str, Any] = {}
+    if settings_path.exists():
+        try:
+            current = json.loads(settings_path.read_text() or "{}")
+        except json.JSONDecodeError:
+            current = {}
+    current.update(_RUN_SETTINGS)
+    settings_path.write_text(json.dumps(current, indent=2))
+
+
+def read_session_log(session_id: str | None) -> str | None:
+    """Return the messages.jsonl text for a v3 session id, if it can be found."""
+    if not session_id:
+        return None
+    matches = glob.glob(str(SESSIONS_DIR / "*" / session_id / "messages.jsonl"))
+    if not matches:
+        return None
+    try:
+        return Path(matches[0]).read_text()
+    except OSError:
+        return None
+
+
+def base_cmd(agent: str, model: str) -> list[str]:
+    """The kiro-cli invocation shared by runs and judges (v3 engine, machine-readable output)."""
+    return [
+        KIRO_BIN, "chat",
+        "--no-interactive",
+        "--agent-engine", "v3",
+        "--trust-workspace",
+        "--output-format", "stream-json",
+        "--agent", agent,
+        "--model", model,
+    ]
 
 
 @dataclass
@@ -56,6 +128,9 @@ class RunResult:
     errors: list[str]
     mcp_startup_failed: bool
     transient_error: bool = False
+    session_id: str | None = None
+    run_status: str | None = None
+    kiro_version: str = ""
     cmd: list[str] = field(default_factory=list)
     raw_excerpt: str = ""
 
@@ -87,25 +162,19 @@ def run_one(
         agents_dir = workspace / ".kiro" / "agents"
         agents_dir.mkdir(parents=True, exist_ok=True)
         (agents_dir / f"{cond.name}.json").write_text(cond.agent_json())
+        write_run_settings(workspace)
 
-        cmd = [
-            KIRO_BIN,
-            "chat",
-            "--no-interactive",
-            "--agent",
-            cond.name,
-            "--model",
-            model,
-            "--trust-all-tools",
-        ]
+        cmd = base_cmd(cond.name, model) + ["--trust-all-tools"]
         if require_mcp and _has_mcp(cond):
             cmd.append("--require-mcp-startup")
         cmd.append(task.prompt)
 
         max_attempts = 3
         transient = False
+        parsed = None
         for attempt in range(1, max_attempts + 1):
             start = time.monotonic()
+            stdout = stderr = ""
             try:
                 proc = subprocess.run(
                     cmd,
@@ -113,31 +182,36 @@ def run_one(
                     capture_output=True,
                     text=True,
                     timeout=timeout_s,
-                    env=os.environ.copy(),
+                    env=_clean_env(),
                 )
                 wall = time.monotonic() - start
-                raw = (proc.stdout or "") + (proc.stderr or "")
+                stdout, stderr = proc.stdout or "", proc.stderr or ""
                 returncode = proc.returncode
             except subprocess.TimeoutExpired as e:
                 wall = time.monotonic() - start
-                raw = (e.stdout or "") + (e.stderr or "") if isinstance(e.stdout, str) else ""
-                raw += "\n[KIRO-LIFT] TIMEOUT"
+                stdout = e.stdout if isinstance(e.stdout, str) else (e.stdout or b"").decode(errors="replace")
+                stderr = e.stderr if isinstance(e.stderr, str) else (e.stderr or b"").decode(errors="replace")
+                stderr += "\n[KIRO-LIFT] TIMEOUT"
                 returncode = -1
-
-            transient = _is_transient(raw)
+            parsed = parse_run(stdout, stderr)
+            transient = _is_transient(stdout + stderr, parsed.status, parsed.answer)
             # Retry only on transient backend errors that produced no usable output.
             if transient and attempt < max_attempts:
                 time.sleep(2.0 * attempt)
                 continue
             break
 
-        parsed = parse_run(raw)
-        mcp_failed = returncode == 3 or "MCP" in "".join(parsed.errors)
+        # Re-parse with the session log for exact tool names + ordered transcript.
+        session_log = read_session_log(parsed.session_id)
+        if session_log:
+            parsed = parse_run(stdout, stderr, session_log)
+        raw = stdout + stderr
+        mcp_failed = returncode == 3 or any("MCP" in e for e in parsed.errors)
 
         used_expected = None
         if task.expects_tool:
             # expects_tool may list several accepted tool-name fragments
-            # separated by "|" (e.g. "call_aws|use_aws"); a run counts as
+            # separated by "|" (e.g. "run_script|execute_bash"); a run counts as
             # using the expected tool if any fragment matches any tool call.
             wanted = [w.strip() for w in task.expects_tool.split("|") if w.strip()]
             used_expected = any(
@@ -165,8 +239,11 @@ def run_one(
             errors=parsed.errors,
             mcp_startup_failed=mcp_failed,
             transient_error=transient,
+            session_id=parsed.session_id,
+            run_status=parsed.status,
+            kiro_version=kiro_version(),
             cmd=cmd,
-            raw_excerpt=raw[-2000:],
+            raw_excerpt=stderr[-2000:],
         )
     finally:
         if not keep_workspace:

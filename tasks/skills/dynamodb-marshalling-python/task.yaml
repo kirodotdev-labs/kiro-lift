@@ -1,6 +1,6 @@
 id: dynamodb-marshalling-python
 stratum: skills
-expects_tool: retrieve_skill|search_documentation
+expects_tool: "retrieve_skill|search_documentation|skill::"
 requires_account: false
 prompt: |
   Write a Python function using boto3 that stores a user record in a DynamoDB

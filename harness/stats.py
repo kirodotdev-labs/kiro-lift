@@ -16,11 +16,16 @@ from statistics import mean
 from typing import Any, Iterable
 
 
-# The base toolset every condition shares (workspace inspection). Tool-use is
-# measured as calls BEYOND these, so a bare baseline that only peeks at the
-# (empty) workspace with read/glob reads 0% and the metric reflects "reached for
-# an augmentation/knowledge tool" (web_search, web_fetch, an MCP tool, ...).
-BASE_TOOLS = {"read", "grep", "glob"}
+# The base toolset every condition shares (the `read` tag: workspace
+# inspection). Tool-use is measured as calls BEYOND these, so a bare baseline
+# that only peeks at the (empty) workspace reads 0% and the metric reflects
+# "reached for an augmentation/knowledge tool" (web search/fetch, a shell, an
+# MCP tool, a skill load, ...). Legacy CLI 2.x names are kept so older results
+# files still aggregate.
+BASE_TOOLS = {
+    "read_file", "list_directory", "file_search", "grep_search", "code",  # v3 `read` tag
+    "read", "grep", "glob",                                              # CLI 2.x
+}
 
 
 def load_jsonl(path: str | Path) -> list[dict[str, Any]]:
@@ -65,7 +70,7 @@ class TaskOutcome:
     mean_time: float | None
     hallucination_rate: float | None
     tool_use_frac: float | None     # fraction of reps that used a NON-BASE tool
-                                    # (any tool beyond the shared read/grep/glob)
+                                    # (any tool beyond the shared `read` tag)
 
 
 def _reduce_task(rows: list[dict[str, Any]]) -> TaskOutcome:
@@ -76,8 +81,9 @@ def _reduce_task(rows: list[dict[str, Any]]) -> TaskOutcome:
     times = [r["cli_time_s"] for r in rows if r.get("cli_time_s") is not None]
     halls = [r["hallucination_rate"] for r in rows if r.get("hallucination_rate") is not None]
     # Tool-use = the run reached for a tool BEYOND the shared base toolset
-    # (read/grep/glob) — an actual augmentation/knowledge tool such as
-    # web_search, web_fetch, or an MCP tool. Base filesystem calls are excluded
+    # (the `read` tag) — an actual augmentation/knowledge tool such as
+    # remote_web_search, web_fetch, execute_bash, a skill load, or an MCP tool.
+    # Base filesystem calls are excluded
     # so a bare baseline that only peeks at the empty workspace reads 0%.
     tu = [
         any(tc not in BASE_TOOLS for tc in (r.get("tool_calls") or []))
@@ -341,8 +347,9 @@ def render_markdown(summary: dict[str, Any]) -> str:
                "Unlock = baseline-fail → treatment-pass rate. "
                "Halluc (Δ) = hallucination rate (Δ vs baseline). "
                "Tool-use = fraction of runs that used a tool BEYOND the shared "
-               "read/grep/glob base (an augmentation/knowledge tool such as "
-               "web_search, web_fetch, or an MCP tool); a bare baseline reads 0%. "
+               "`read` base tools (an augmentation/knowledge tool such as web "
+               "search/fetch, a shell command, a skill load, or an MCP tool); a "
+               "bare baseline reads 0%. "
                "Cost = mean credits/run (and ×baseline). "
                "McNemar p = two-sided exact paired test with b→c discordant counts; "
                "small n (shown) is underpowered, so read p alongside lift._")

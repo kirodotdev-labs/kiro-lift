@@ -1,6 +1,6 @@
 name: agent-toolkit-lift
 # The worked example: how much lift does the Agent Toolkit for AWS (the managed
-# AWS MCP Server — docs + recommend + retrieve_skill) add over a bare model and
+# AWS MCP Server — docs + run_script + retrieve_skill) add over a bare model and
 # over a model with native tools (web + AWS CLI)?
 #
 # Model under test (the agent doing the tasks). Judges are separate (below) and
@@ -13,7 +13,7 @@ model: claude-sonnet-4.6
 #   lift-baseline         - bare model, no tools (reference)
 #   lift-baseline-native  - + native tools: web search/fetch + AWS CLI
 #   lift-aws-mcp          - + the Agent Toolkit for AWS (managed MCP: docs +
-#                           recommend + skills via retrieve_skill)
+#                           run_script + skills via retrieve_skill)
 conditions:
   - lift-baseline
   - lift-baseline-native

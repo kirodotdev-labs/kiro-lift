@@ -1,7 +1,7 @@
 # Stratum: `api`
 
 Deterministic, fixture-backed questions that require calling AWS APIs to answer
-(e.g. `call_aws`). Unlike account-counting questions, every answer here is a
+(the managed MCP's `run_script`, or the AWS CLI from a shell). Unlike account-counting questions, every answer here is a
 hard-coded yes/no fact because the resources are provisioned by a known
 CloudFormation template.
 
@@ -12,9 +12,9 @@ CloudFormation template.
   enumeration answers can't be guessed the way a yes/no can.
 - **Expected baseline failure mode:** the bare `lift-baseline` model has no
   account access, so it must guess and should fail. `lift-baseline-native` can
-  query the account with the AWS CLI (`use_aws`).
+  query the account with the AWS CLI (`execute_bash`).
 - **Expected lift from augmentation:** capability unlock for the bare model, and
-  a reliability/cost comparison for the rest — the Agent Toolkit's `call_aws`
+  a reliability/cost comparison for the rest — the Agent Toolkit's `run_script`
   (`lift-aws-mcp`) versus the native AWS CLI both have account access, so any
   delta here is about correctness and overhead rather than raw capability.
 
@@ -37,9 +37,9 @@ This stratum has hook scripts the harness runs around the stratum's tasks:
 - Valid AWS credentials on the default profile (`aws sts get-caller-identity`).
 - Region comes from your AWS environment (`AWS_REGION` / `AWS_DEFAULT_REGION`,
   default `us-west-2`) — the hook scripts read it, not the harness.
-- The Agent Toolkit's `call_aws` and the native AWS CLI both operate read-only
-  (the toolkit's API surface and the `use_aws` read-only policy); tasks are
-  strictly read-only (describe / simulate). Resource creation/deletion happens
+- Tasks are strictly read-only (describe / simulate) by construction of the
+  prompts; neither the Agent Toolkit's `run_script` nor the shell-run AWS CLI is
+  technically restricted to read-only calls under `--trust-all-tools`. Resource creation/deletion happens
   only in the hook scripts, never through an MCP or the CLI.
 
 ## Fixture permissions

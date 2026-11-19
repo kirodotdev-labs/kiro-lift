@@ -16,7 +16,7 @@ import yaml
 #   architecture   - "given this usage pattern, what should I use?" advice; tests
 #                    whether augmentation yields better/newer service recommendations
 #   api            - deterministic, fixture-backed questions answered by calling
-#                    AWS APIs (e.g. call_aws); ground truth is provisioned via a
+#                    AWS APIs (e.g. the managed MCP run_script or the AWS CLI); ground truth is provisioned via a
 #                    CloudFormation stack by the stratum's setup/teardown hooks
 #   skills         - procedural/SDK tasks where agent skills (step-by-step
 #                    runbooks) should improve correctness; tests whether skills

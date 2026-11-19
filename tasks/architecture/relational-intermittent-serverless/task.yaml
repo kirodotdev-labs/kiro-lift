@@ -1,6 +1,6 @@
 id: relational-intermittent-serverless
 stratum: architecture
-expects_tool: recommend|search_documentation
+expects_tool: search_documentation
 requires_account: false
 prompt: |
   I'm building a service backed by a PostgreSQL-compatible relational database.
